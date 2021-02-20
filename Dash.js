@@ -38,7 +38,7 @@ class Dash extends EventEmitter {
 
     color(color) {
         if(color) {
-            console.log("changing mode to ", color)
+            console.log("changing colour to ", color)
             this._setSocketData({color})
         } else {
             return this.data.color
@@ -73,13 +73,13 @@ class Dash extends EventEmitter {
 
             default:
                 console.log("getting page default")
-                return this.data.page
+                return this.currentPage
         }
     }
 
     brightness(brightness) {
         if(brightness) {
-            console.log("changing mode to ", brightness)
+            console.log("changing brightness to ", brightness)
             this._setSocketData({brightness: brightness})
         } else {
             return this.data.brightness

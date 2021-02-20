@@ -1,12 +1,14 @@
 {
-  "name": "dash-socket",
-  "version": "1.0.0",
-  "description": "",
+  "name": "dash-socket-api",
+  "version": "0.1.0",
+  "description": "Wrapper for dash API",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Rhys Morgan",
+  "email": "rhys1802@hotmail.co.uk",
+  "homepage": "https://github.com/rhysmorgan134/dash-socket-api",
   "license": "ISC",
   "dependencies": {
     "ws": "^7.4.3"
