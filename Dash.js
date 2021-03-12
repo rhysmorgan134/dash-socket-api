@@ -1,4 +1,5 @@
 const WebSocket = require('ws')
+const Socket = require('./Socket')
 const EventEmitter = require('events')
 
 class Dash extends EventEmitter {
@@ -14,148 +15,118 @@ class Dash extends EventEmitter {
             brightness: null,
             volume: null,
             pages: [],
-        }
-        this.currentPage = null
-        this.connectedState = false
-        this.pageCount = 0
-        this.ws = null
-        this._connect()
-
-    }
-
-    connected(state) {
-        state ? this.connectedState = true : this.connectedState = false
+        };
+        this.currentPage = null;
+        this.actionConnected = false;
+        this.stateConnected = false;
+        this.pageCount = 0;
+        this.connected=false;
+        this.sockets = {action: new Socket(this._IP, this._PORT, 'action'), state: new Socket(this._IP, this._PORT, 'state')};
+        this.sockets.action.on('data', (data) => this.parseData(data));
+        this.sockets.action.on('connected', () => this.actionConnected = true);
+        this.sockets.action.on('disconnected', () => this.connected = false);
+        this.sockets.state.on('data', (data) => {
+            this.parseData(data);
+            if(!this.connected) {
+                this.connected = true;
+                this.emit("connected");
+            }
+        });
+        this.sockets.state.on('connected', () => this.stateConnected = true);
+        this.sockets.state.on('disconnected', () => this.connected = false);
     }
 
     mode(mode) {
         if(mode) {
-            console.log("changing mode to ", mode)
-            this._setSocketData({mode})
+            this._setSocketData({mode}, 'state');
         } else {
-            return this.data.mode
+            return this.data.mode;
         }
     }
 
     color(color) {
         if(color) {
-            console.log("changing colour to ", color)
-            this._setSocketData({color})
+            this._setSocketData({color}, 'state');
         } else {
-            return this.data.color
+            return this.data.color;
         }
     }
 
+    cyclePage() {
+        this._setSocketData(["cycle_page"], 'action');
+    }
+
     page(page) {
-        console.log("looping for ", page)
         switch(typeof page) {
             case "number":
-                console.log("int", page)
                 if(this.data.pages[page].enabled) {
-                    this._setSocketData({page: page})
+                    this._setSocketData({page: page}, 'state');
                 } else {
-                    console.log("ERR selected page not enabled")
+                    console.log("ERR selected page not enabled");
                 }
-                break
+                break;
 
             case "string":
-                console.log("string", page)
                 for(let i=0;i<this.data.pages.length;i++) {
                     if(this.data.pages[i].name === page || this.data.pages[i].key === page) {
                         if(this.data.pages[i].enabled) {
-                            console.log("changing page to: ", page)
-                            this._setSocketData({page: i})
+                            this._setSocketData({page: i}, 'state');
                         } else {
-                            console.log("ERR selected page not enabled")
+                            console.log("ERR selected page not enabled");
                         }
                     }
                 }
-                break
+                break;
 
             default:
-                console.log("getting page default")
-                return this.currentPage
+                return this.currentPage;
         }
     }
 
     brightness(brightness) {
         if(brightness) {
-            console.log("changing brightness to ", brightness)
-            this._setSocketData({brightness: brightness})
+            this._setSocketData({brightness: brightness}, 'state');
         } else {
-            return this.data.brightness
+            return this.data.brightness;
         }
     }
 
     volume(volume) {
         if(volume) {
-            console.log("changing mode to ", volume)
-            this._setSocketData({volume: volume})
+            this._setSocketData({volume: volume}, 'state');
         } else {
-            return this.data.volume
+            return this.data.volume;
         }
     }
 
-    _reconnect() {
-        this._connect()
+    parseData(data) {
+        this.data = {...this.data, ...data};
+        if(data.page != null) {
+            this.currentPage = this.data.pages[data.page];
+        }
+
+        if(data.pages) {
+            this.pageCount = data.pages.length -1;
+        }
     }
 
-    _connect() {
-        this.ws = new WebSocket(`ws://${this._IP}:${this._PORT}`)
-
-        this.ws.on('error', (data) => {
-            console.log("ERR: ", data)
-            // setTimeout(() => {
-            //     this._reconnect()
-            // }, 5000)
-        })
-
-        this.ws.on('open', () => {
-            console.log("connected")
-            this.ws.send(JSON.stringify(["mode", "color", "page", "brightness", "pages", "volume"]))
-
-        })
-
-        this.ws.on('close', () => {
-            console.log("disconnected")
-            this.connectedState = false
-            setTimeout(() => {
-                this._reconnect()
-            }, 5000)
-        })
-
-        this.ws.on('message', (data) => {
-            data = JSON.parse(data)
-            this.data = {...this.data, ...data}
-
-            if(data.page != null) {
-                this.currentPage = this.data.pages[data.page]
-                console.log(this.currentPage)
+    _setSocketData(data, type) {
+        if(this.actionConnected && this.stateConnected) {
+            if(type === 'state') {
+                this.sockets.state.send(JSON.stringify(data));
+            } else {
+                this.sockets.action.send(JSON.stringify(data));
             }
-
-            if(data.pages) {
-                this.pageCount = data.pages.length -1
-            }
-
-            if(!this.connectedState) {
-                this.connected(true)
-                this.emit('connected')
-            }
-        })
-    }
-
-    _setSocketData(data) {
-        if(this.connectedState) {
-            this.ws.send(JSON.stringify(data))
         } else {
-            console.log("message not sent, no connection")
+            console.log("message not sent, no connection");
         }
 
     }
 
     _getSocketData(data) {
-        this.ws.send(JSON.stringify([data]))
+        this.ws.send(JSON.stringify([data]));
     }
 
 }
 
-module.exports = Dash
+module.exports = Dash;
